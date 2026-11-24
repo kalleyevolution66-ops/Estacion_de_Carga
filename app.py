@@ -209,6 +209,14 @@ def obtener_nombres_estaciones(lista_estaciones):
     return nombres
 
 
+def eliminar_estacion_por_indice(lista_estaciones, indice_eliminar):
+    nueva_lista = []
+    for i in range(len(lista_estaciones)):
+        if i != indice_eliminar:
+            nueva_lista.append(lista_estaciones[i])
+    return nueva_lista
+
+
 def obtener_color_placa(placa, placas_vistas):
     for i in range(len(placas_vistas)):
         if placas_vistas[i] == placa:
@@ -393,16 +401,34 @@ with st.sidebar:
 
     st.subheader("1. Gestión de Estaciones")
     nombres_estaciones = obtener_nombres_estaciones(st.session_state["estaciones"])
-    idx_activa = buscar_indice_estacion(st.session_state["estaciones"], st.session_state["estacion_activa"])
 
-    estacion_seleccionada = st.selectbox(
-        "Estación de Carga Activa:",
-        options=nombres_estaciones,
-        index=idx_activa,
-        help="Selecciona qué estación de la red deseas supervisar y simular."
-    )
-    st.session_state["estacion_activa"] = estacion_seleccionada
-    idx_activa = buscar_indice_estacion(st.session_state["estaciones"], estacion_seleccionada)
+    if len(nombres_estaciones) > 0:
+        idx_activa = buscar_indice_estacion(st.session_state["estaciones"], st.session_state["estacion_activa"])
+
+        estacion_seleccionada = st.selectbox(
+            "Estación de Carga Activa:",
+            options=nombres_estaciones,
+            index=idx_activa,
+            help="Selecciona qué estación de la red deseas supervisar y simular."
+        )
+        st.session_state["estacion_activa"] = estacion_seleccionada
+        idx_activa = buscar_indice_estacion(st.session_state["estaciones"], estacion_seleccionada)
+
+        if st.button("🗑️ Eliminar Estación Activa", help="Elimina la estación seleccionada de la red"):
+            nombre_eliminada = st.session_state["estaciones"][idx_activa][0]
+            st.session_state["estaciones"] = eliminar_estacion_por_indice(
+                st.session_state["estaciones"],
+                idx_activa
+            )
+            if len(st.session_state["estaciones"]) > 0:
+                st.session_state["estacion_activa"] = st.session_state["estaciones"][0][0]
+            else:
+                st.session_state["estacion_activa"] = ""
+            st.toast(f"Estación '{nombre_eliminada}' eliminada.")
+            st.rerun()
+    else:
+        idx_activa = -1
+        st.info("No hay estaciones activas. Agrega una nueva estación o importa un archivo JSON.")
 
     with st.expander("🏢 Agregar Nueva Estación"):
         with st.form("form_nueva_estacion", clear_on_submit=True):
@@ -433,39 +459,42 @@ with st.sidebar:
     )
 
     st.subheader("3. Flota de Vehículos")
-    with st.expander("➕ Registrar Nuevo Vehículo"):
-        with st.form("form_nuevo_vehiculo", clear_on_submit=True):
-            n_nombre = st.text_input("Nombre / Modelo:", value="Tesla Model 3").strip()
-            n_placa = st.text_input("Placa del vehículo:", value="E").strip().upper()
-            n_llegada = st.number_input("Hora de llegada (0 a 23 h):", min_value=-5.0, max_value=30.0, value=10.0, step=0.5)
-            n_kwh = st.number_input("Energía requerida (kWh):", min_value=-20.0, max_value=150.0, value=15.0, step=5.0)
-            btn_registrar = st.form_submit_button("Ingresar a la Fila")
+    if len(st.session_state["estaciones"]) > 0:
+        with st.expander("➕ Registrar Nuevo Vehículo"):
+            with st.form("form_nuevo_vehiculo", clear_on_submit=True):
+                n_nombre = st.text_input("Nombre / Modelo:", value="Tesla Model 3").strip()
+                n_placa = st.text_input("Placa del vehículo:", value="E").strip().upper()
+                n_llegada = st.number_input("Hora de llegada (0 a 23 h):", min_value=-5.0, max_value=30.0, value=10.0, step=0.5)
+                n_kwh = st.number_input("Energía requerida (kWh):", min_value=-20.0, max_value=150.0, value=15.0, step=5.0)
+                btn_registrar = st.form_submit_button("Ingresar a la Fila")
 
-            if btn_registrar:
-                errores_v = validar_vehiculo(n_placa, n_llegada, n_kwh)
-                if len(errores_v) > 0:
-                    for err in errores_v:
-                        st.warning(err)
-                else:
-                    if n_nombre != "":
-                        nom_final = n_nombre
+                if btn_registrar:
+                    errores_v = validar_vehiculo(n_placa, n_llegada, n_kwh)
+                    if len(errores_v) > 0:
+                        for err in errores_v:
+                            st.warning(err)
                     else:
-                        nom_final = f"Vehículo {n_placa}"
-                    st.session_state["estaciones"][idx_activa][3].append([
-                        n_placa,
-                        nom_final,
-                        float(n_llegada),
-                        float(n_kwh)
-                    ])
-                    st.success(f"{nom_final} ({n_placa}) registrado en fila.")
-                    st.rerun()
+                        if n_nombre != "":
+                            nom_final = n_nombre
+                        else:
+                            nom_final = f"Vehículo {n_placa}"
+                        st.session_state["estaciones"][idx_activa][3].append([
+                            n_placa,
+                            nom_final,
+                            float(n_llegada),
+                            float(n_kwh)
+                        ])
+                        st.success(f"{nom_final} ({n_placa}) registrado en fila.")
+                        st.rerun()
 
-    if st.button("🔄 Restablecer Flota Oficial", help="Vuelve a los vehículos base de la estación"):
-        if st.session_state["estacion_activa"] == "Norte" and os.path.exists(RUTA_DEFAULT):
-            st.session_state["estaciones"][idx_activa] = cargar_datos(RUTA_DEFAULT)
-        else:
-            st.session_state["estaciones"][idx_activa][3] = []
-        st.rerun()
+        if st.button("🔄 Restablecer Flota Oficial", help="Vuelve a los vehículos base de la estación"):
+            if st.session_state["estacion_activa"] == "Norte" and os.path.exists(RUTA_DEFAULT):
+                st.session_state["estaciones"][idx_activa] = cargar_datos(RUTA_DEFAULT)
+            else:
+                st.session_state["estaciones"][idx_activa][3] = []
+            st.rerun()
+    else:
+        st.caption("Crea o importa una estación para registrar vehículos.")
 
     st.subheader("4. Fuente Externa y Respaldo (.JSON)")
     archivo_subido = st.file_uploader(
@@ -495,313 +524,325 @@ with st.sidebar:
                 st.session_state["estacion_activa"] = cargada[0]
                 st.success(f"Estación '{cargada[0]}' importada con éxito.")
 
-    estacion_actual = st.session_state["estaciones"][idx_activa]
+    if len(st.session_state["estaciones"]) > 0:
+        idx_activa = buscar_indice_estacion(st.session_state["estaciones"], st.session_state["estacion_activa"])
+        estacion_actual = st.session_state["estaciones"][idx_activa]
 
-    if st.button("💾 Guardar JSON en datos/salida.json"):
-        guardar_datos(RUTA_SALIDA, estacion_actual)
-        st.success("Archivo guardado en datos/salida.json.")
+        if st.button("💾 Guardar JSON en datos/salida.json"):
+            guardar_datos(RUTA_SALIDA, estacion_actual)
+            st.success("Archivo guardado en datos/salida.json.")
 
-    json_descarga = exportar_json_texto(estacion_actual)
-    st.download_button(
-        label="⬇️ Descargar JSON de Estación",
-        data=json_descarga,
-        file_name=f"{estacion_actual[0].lower()}_estacion.json",
-        mime="application/json"
-    )
-
-    st.markdown("---")
-    st.markdown("### 📋 Ficha Técnica")
-    st.caption(f"**Sede Activa:** {estacion_actual[0]}")
-    st.caption(f"**Potencia Nominal:** {estacion_actual[1]} kW por cargador")
-    st.caption(f"**Tarifa Regulada:** ${estacion_actual[2]:,.0f} COP / kWh")
-    st.caption(f"**Flota Programada:** {len(estacion_actual[3])} vehículos")
-
-
-# ==============================================================================
-# 3. MOTOR DE SIMULACIÓN Y CÁLCULOS
-# ==============================================================================
-error_cargadores = validar_cargadores(num_cargadores)
-resultado = simular_estacion(estacion_actual, num_cargadores=num_cargadores)
-pico = calcular_hora_pico(resultado)
-asignaciones = resultado[4]
-
-if len(asignaciones) > 0:
-    h_min = asignaciones[0][2]
-    h_max = asignaciones[0][6]
-    for i in range(1, len(asignaciones)):
-        if asignaciones[i][2] < h_min:
-            h_min = asignaciones[i][2]
-        if asignaciones[i][6] > h_max:
-            h_max = asignaciones[i][6]
-else:
-    h_min = 8.0
-    h_max = 12.0
-
-
-# ==============================================================================
-# 4. ENCABEZADO PRINCIPAL (BANNER ESTILO SCADA)
-# ==============================================================================
-st.markdown(f"""
-<div class="station-header">
-    <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-        <div>
-            <h1 class="station-title">⚡ Estación de Carga "{resultado[0]}"</h1>
-            <div class="station-subtitle">
-                Sistema Inteligente de Despacho y Monitoreo de Recarga para Vehículos Eléctricos
-            </div>
-        </div>
-        <div style="text-align: right; background: rgba(255,255,255,0.15); padding: 8px 16px; border-radius: 10px;">
-            <div style="font-size: 0.8rem; font-weight: 600; text-transform: uppercase;">Infraestructura</div>
-            <div style="font-size: 1.3rem; font-weight: 800;">{num_cargadores} Cargadores ({resultado[1]} kW c/u)</div>
-        </div>
-    </div>
-</div>
-""", unsafe_allow_html=True)
-
-if error_cargadores != "":
-    st.error(f"⚠️ {error_cargadores}", icon="🚨")
-
-
-# ==============================================================================
-# 5. VISUALIZACIÓN 3: TARJETAS KPI EJECUTIVAS Y ALERTA INTUITIVA
-# ==============================================================================
-col_kpi1, col_kpi2, col_kpi3, col_kpi4 = st.columns(4)
-
-with col_kpi1:
-    if resultado[5] > 0:
-        color_espera = "#EF4444"
-    else:
-        color_espera = "#10B981"
-    st.markdown(f"""
-    <div class="kpi-card">
-        <div class="kpi-header">⏱️ Espera Total Acumulada</div>
-        <div class="kpi-value" style="color: {color_espera};">{resultado[5]:.1f} <span style="font-size: 1.1rem;">h</span></div>
-        <div class="kpi-footer">{resultado[5] * 60:.0f} minutos totales en cola</div>
-    </div>
-    """, unsafe_allow_html=True)
-
-with col_kpi2:
-    st.markdown(f"""
-    <div class="kpi-card">
-        <div class="kpi-header">⚡ Energía Entregada</div>
-        <div class="kpi-value" style="color: #2563EB;">{resultado[6]:.1f} <span style="font-size: 1.1rem;">kWh</span></div>
-        <div class="kpi-footer">Demanda suministrada al 100%</div>
-    </div>
-    """, unsafe_allow_html=True)
-
-with col_kpi3:
-    st.markdown(f"""
-    <div class="kpi-card">
-        <div class="kpi-header">💰 Facturación Total</div>
-        <div class="kpi-value" style="color: #059669;">${resultado[7]:,.0f}</div>
-        <div class="kpi-footer">Tarifa: ${resultado[2]:,.0f} / kWh</div>
-    </div>
-    """, unsafe_allow_html=True)
-
-with col_kpi4:
-    st.markdown(f"""
-    <div class="kpi-card">
-        <div class="kpi-header">🔥 Reto: Hora de Mayor Ocupación</div>
-        <div class="kpi-value" style="color: #D97706; font-size: 1.6rem;">{pico[4]}</div>
-        <div class="kpi-footer">{pico[0]} de {num_cargadores} cargadores ({pico[1]}%)</div>
-    </div>
-    """, unsafe_allow_html=True)
-
-# Alerta de servicio clara y accionable
-alertas = resultado[8]
-if len(alertas) > 0:
-    partes_placas = []
-    for i in range(len(alertas)):
-        v_alerta = alertas[i]
-        partes_placas.append(f"**{v_alerta[0]}** ({v_alerta[8]:.1f} h)")
-    placas_texto = ", ".join(partes_placas)
-    sugerido = num_cargadores + 1
-    if sugerido > 6:
-        sugerido = 6
-    st.error(
-        f"⚠️ **Alerta de Nivel de Servicio:** Vehículo(s) {placas_texto} superan el umbral máximo de espera de "
-        f"{UMBRAL_ALERTA_ESPERA_HORAS:.1f} h.  \n"
-        f"💡 **Recomendación Energética:** Aumente el número de cargadores a **{sugerido}** "
-        f"en la barra lateral para optimizar la rotación y eliminar las esperas.",
-        icon="🚨"
-    )
-elif error_cargadores == "":
-    st.success("✅ **Excelente Desempeño:** Todos los vehículos ingresaron a carga sin superar el umbral de espera.", icon="✅")
-
-st.markdown("<br>", unsafe_allow_html=True)
-
-
-# ==============================================================================
-# 6. SECCIÓN CENTRAL: MONITOREO DINÁMICO EN TIEMPO REAL
-# ==============================================================================
-st.markdown("### 🔌 Bahías de Carga y Monitoreo en Tiempo Real")
-st.caption(
-    "Mueva el control horario para ver cómo avanza el llenado de baterías y el estado de cada bahía. "
-    "La aguja roja vertical en el diagrama inferior se moverá en simultáneo con esta hora."
-)
-
-col_ctrl1, col_ctrl2 = st.columns([3, 1])
-
-with col_ctrl1:
-    if h_max <= h_min:
-        h_max_slider = h_min + 1.0
-    else:
-        h_max_slider = h_max
-    t_inspeccion = st.slider(
-        "🕒 Selecciona la Hora del Día para Inspección:",
-        min_value=float(h_min),
-        max_value=float(h_max_slider),
-        value=float(h_min),
-        step=0.25,
-        format="%.2f h"
-    )
-
-with col_ctrl2:
-    h_int = int(t_inspeccion)
-    m_int = int((t_inspeccion - h_int) * 60)
-    st.markdown(f"""
-    <div style="text-align: center; background: var(--secondary-background-color); border: 1px solid rgba(148,163,184,0.3); border-radius: 12px; padding: 12px;">
-        <div style="font-size: 0.75rem; text-transform: uppercase; font-weight: 700; opacity: 0.7;">Hora Seleccionada</div>
-        <div style="font-size: 1.8rem; font-weight: 800; color: #2563EB;">{h_int:02d}:{m_int:02d}</div>
-    </div>
-    """, unsafe_allow_html=True)
-
-estados_cargadores = obtener_estado_en_instante(resultado, t_inspeccion)
-
-if len(estados_cargadores) > 0:
-    if num_cargadores < 3:
-        num_cols = num_cargadores
-    else:
-        num_cols = 3
-    cols_bays = st.columns(num_cols)
-
-    for idx in range(len(estados_cargadores)):
-        est = estados_cargadores[idx]
-        c_idx = idx % num_cols
-
-        with cols_bays[c_idx]:
-            if est[1] == "Ocupado":
-                st.markdown(f"""
-                <div class="bay-card bay-active">
-                    <div class="bay-header">
-                        <h4 class="bay-title">⚡ Bahía {est[0]}</h4>
-                        <span class="bay-badge-busy">Cargando ({est[2]})</span>
-                    </div>
-                    <div class="bay-meta">
-                        <span class="bay-meta-label">Vehículo en Carga:</span>
-                        <span class="bay-meta-val" style="color: #2563EB;">{est[3]} (Placa {est[2]})</span>
-                    </div>
-                    <div class="bay-meta">
-                        <span class="bay-meta-label">Energía Transferida:</span>
-                        <span class="bay-meta-val">{est[5]:.1f} / {est[6]:.1f} kWh</span>
-                    </div>
-                    <div class="bay-meta">
-                        <span class="bay-meta-label">Hora Estimada Fin:</span>
-                        <span class="bay-meta-val">{est[7]:.2f} h</span>
-                    </div>
-                    <div style="margin-top: 10px; margin-bottom: 4px; display: flex; justify-content: space-between; font-size: 0.85rem; font-weight: 700;">
-                        <span>Progreso Batería</span>
-                        <span style="color: #2563EB;">{est[4]:.1f}%</span>
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
-                st.progress(float(est[4]) / 100.0)
-            else:
-                st.markdown(f"""
-                <div class="bay-card bay-idle">
-                    <div class="bay-header">
-                        <h4 class="bay-title">⚡ Bahía {est[0]}</h4>
-                        <span class="bay-badge-idle">Disponible</span>
-                    </div>
-                    <div class="bay-meta">
-                        <span class="bay-meta-label">Estado Operativo:</span>
-                        <span class="bay-meta-val" style="color: #10B981;">Libre para conectar</span>
-                    </div>
-                    <div class="bay-meta">
-                        <span class="bay-meta-label">Potencia en Espera:</span>
-                        <span class="bay-meta-val">{resultado[1]} kW</span>
-                    </div>
-                    <div class="bay-meta">
-                        <span class="bay-meta-label">Flujo Activo:</span>
-                        <span class="bay-meta-val">0.0 kW</span>
-                    </div>
-                    <div style="margin-top: 10px; margin-bottom: 4px; display: flex; justify-content: space-between; font-size: 0.85rem; font-weight: 700; color: #64748B;">
-                        <span>Bahía Desocupada</span>
-                        <span>0.0%</span>
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
-                st.progress(0.0)
-
-st.markdown("<br>", unsafe_allow_html=True)
-
-
-# ==============================================================================
-# 7. VISUALIZACIÓN 1: GANTT INTERACTIVO CON AGUJA TEMPORAL SINCRONIZADA
-# ==============================================================================
-st.markdown("### 📅 Programación y Despacho Temporal (Diagrama de Gantt)")
-st.caption(
-    "Visualiza la asignación secuencial de cada vehículo en su respectivo cargador. "
-    "La **línea roja vertical** marca el instante que estás observando en las bahías de arriba."
-)
-
-gantt_svg = generar_gantt_svg_moderno(asignaciones, num_cargadores, h_min, h_max, t_inspeccion)
-st.markdown(f'<div class="gantt-panel">{gantt_svg}</div>', unsafe_allow_html=True)
-
-col_l1, col_l2, col_l3 = st.columns([1, 1, 1.5])
-with col_l1:
-    st.markdown("🟦 **Bloques Sólidos:** Vehículo en proceso de carga activa.")
-with col_l2:
-    st.markdown("🏁 **Tramo Rayado:** Tiempo en fila de espera hasta disponibilidad.")
-with col_l3:
-    st.markdown("📍 **Línea Roja Punteada:** Hora actual inspeccionada en las bahías.")
-
-st.markdown("<br>", unsafe_allow_html=True)
-
-
-# ==============================================================================
-# 8. DETALLE OPERATIVO Y MATRIZ DE DESPACHO
-# ==============================================================================
-with st.expander("📊 Consultar Registro Detallado de Despacho (Flota Completa)"):
-    filas_html = []
-    for i in range(len(asignaciones)):
-        v = asignaciones[i]
-        facturacion_v = v[3] * resultado[2]
-        filas_html.append(
-            f"<tr>"
-            f"<td><b>{v[0]}</b></td>"
-            f"<td>{v[1]}</td>"
-            f"<td>{v[2]:05.2f} h</td>"
-            f"<td>Cargador {v[4]}</td>"
-            f"<td>{v[5]:05.2f} h</td>"
-            f"<td>{v[6]:05.2f} h</td>"
-            f"<td>{v[7]:.2f} h</td>"
-            f"<td>{v[8]:.2f} h</td>"
-            f"<td>{v[3]:.1f} kWh</td>"
-            f"<td>${facturacion_v:,.0f}</td>"
-            f"</tr>"
+        json_descarga = exportar_json_texto(estacion_actual)
+        st.download_button(
+            label="⬇️ Descargar JSON de Estación",
+            data=json_descarga,
+            file_name=f"{estacion_actual[0].lower()}_estacion.json",
+            mime="application/json"
         )
 
-    cuerpo_tabla = "".join(filas_html)
-    tabla_html = f"""
-    <table class="tabla-despacho">
-        <thead>
-            <tr>
-                <th>Placa</th>
-                <th>Nombre / Modelo</th>
-                <th>Llegada</th>
-                <th>Bahía</th>
-                <th>Inicio</th>
-                <th>Fin</th>
-                <th>Carga</th>
-                <th>Espera</th>
-                <th>Energía</th>
-                <th>Facturación</th>
-            </tr>
-        </thead>
-        <tbody>
-            {cuerpo_tabla}
-        </tbody>
-    </table>
-    """
-    st.markdown(tabla_html, unsafe_allow_html=True)
+        st.markdown("---")
+        st.markdown("### 📋 Ficha Técnica")
+        st.caption(f"**Sede Activa:** {estacion_actual[0]}")
+        st.caption(f"**Potencia Nominal:** {estacion_actual[1]} kW por cargador")
+        st.caption(f"**Tarifa Regulada:** ${estacion_actual[2]:,.0f} COP / kWh")
+        st.caption(f"**Flota Programada:** {len(estacion_actual[3])} vehículos")
+    else:
+        estacion_actual = None
+
+
+# ==============================================================================
+# 3. MOTOR DE SIMULACIÓN, VISUALIZACIONES Y TABLA DE DESPACHO
+# ==============================================================================
+if estacion_actual is not None:
+    error_cargadores = validar_cargadores(num_cargadores)
+    resultado = simular_estacion(estacion_actual, num_cargadores=num_cargadores)
+    pico = calcular_hora_pico(resultado)
+    asignaciones = resultado[4]
+
+    if len(asignaciones) > 0:
+        h_min = asignaciones[0][2]
+        h_max = asignaciones[0][6]
+        for i in range(1, len(asignaciones)):
+            if asignaciones[i][2] < h_min:
+                h_min = asignaciones[i][2]
+            if asignaciones[i][6] > h_max:
+                h_max = asignaciones[i][6]
+    else:
+        h_min = 8.0
+        h_max = 12.0
+
+    # ==========================================================================
+    # 4. ENCABEZADO PRINCIPAL (BANNER ESTILO SCADA)
+    # ==========================================================================
+    st.markdown(f"""
+    <div class="station-header">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+            <div>
+                <h1 class="station-title">⚡ Estación de Carga "{resultado[0]}"</h1>
+                <div class="station-subtitle">
+                    Sistema Inteligente de Despacho y Monitoreo de Recarga para Vehículos Eléctricos
+                </div>
+            </div>
+            <div style="text-align: right; background: rgba(255,255,255,0.15); padding: 8px 16px; border-radius: 10px;">
+                <div style="font-size: 0.8rem; font-weight: 600; text-transform: uppercase;">Infraestructura</div>
+                <div style="font-size: 1.3rem; font-weight: 800;">{num_cargadores} Cargadores ({resultado[1]} kW c/u)</div>
+            </div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    if error_cargadores != "":
+        st.error(f"⚠️ {error_cargadores}", icon="🚨")
+
+    # ==========================================================================
+    # 5. VISUALIZACIÓN 3: TARJETAS KPI EJECUTIVAS Y ALERTA INTUITIVA
+    # ==========================================================================
+    col_kpi1, col_kpi2, col_kpi3, col_kpi4 = st.columns(4)
+
+    with col_kpi1:
+        if resultado[5] > 0:
+            color_espera = "#EF4444"
+        else:
+            color_espera = "#10B981"
+        st.markdown(f"""
+        <div class="kpi-card">
+            <div class="kpi-header">⏱️ Espera Total Acumulada</div>
+            <div class="kpi-value" style="color: {color_espera};">{resultado[5]:.1f} <span style="font-size: 1.1rem;">h</span></div>
+            <div class="kpi-footer">{resultado[5] * 60:.0f} minutos totales en cola</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    with col_kpi2:
+        st.markdown(f"""
+        <div class="kpi-card">
+            <div class="kpi-header">⚡ Energía Entregada</div>
+            <div class="kpi-value" style="color: #2563EB;">{resultado[6]:.1f} <span style="font-size: 1.1rem;">kWh</span></div>
+            <div class="kpi-footer">Demanda suministrada al 100%</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    with col_kpi3:
+        st.markdown(f"""
+        <div class="kpi-card">
+            <div class="kpi-header">💰 Facturación Total</div>
+            <div class="kpi-value" style="color: #059669;">${resultado[7]:,.0f}</div>
+            <div class="kpi-footer">Tarifa: ${resultado[2]:,.0f} / kWh</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    with col_kpi4:
+        st.markdown(f"""
+        <div class="kpi-card">
+            <div class="kpi-header">🔥 Reto: Hora de Mayor Ocupación</div>
+            <div class="kpi-value" style="color: #D97706; font-size: 1.6rem;">{pico[4]}</div>
+            <div class="kpi-footer">{pico[0]} de {num_cargadores} cargadores ({pico[1]}%)</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    # Alerta de servicio clara y accionable
+    alertas = resultado[8]
+    if len(alertas) > 0:
+        partes_placas = []
+        for i in range(len(alertas)):
+            v_alerta = alertas[i]
+            partes_placas.append(f"**{v_alerta[0]}** ({v_alerta[8]:.1f} h)")
+        placas_texto = ", ".join(partes_placas)
+        sugerido = num_cargadores + 1
+        if sugerido > 6:
+            sugerido = 6
+        st.error(
+            f"⚠️ **Alerta de Nivel de Servicio:** Vehículo(s) {placas_texto} superan el umbral máximo de espera de "
+            f"{UMBRAL_ALERTA_ESPERA_HORAS:.1f} h.  \n"
+            f"💡 **Recomendación Energética:** Aumente el número de cargadores a **{sugerido}** "
+            f"en la barra lateral para optimizar la rotación y eliminar las esperas.",
+            icon="🚨"
+        )
+    elif error_cargadores == "":
+        st.success("✅ **Excelente Desempeño:** Todos los vehículos ingresaron a carga sin superar el umbral de espera.", icon="✅")
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    # ==========================================================================
+    # 6. SECCIÓN CENTRAL: MONITOREO DINÁMICO EN TIEMPO REAL
+    # ==========================================================================
+    st.markdown("### 🔌 Bahías de Carga y Monitoreo en Tiempo Real")
+    st.caption(
+        "Mueva el control horario para ver cómo avanza el llenado de baterías y el estado de cada bahía. "
+        "La aguja roja vertical en el diagrama inferior se moverá en simultáneo con esta hora."
+    )
+
+    col_ctrl1, col_ctrl2 = st.columns([3, 1])
+
+    with col_ctrl1:
+        if h_max <= h_min:
+            h_max_slider = h_min + 1.0
+        else:
+            h_max_slider = h_max
+        t_inspeccion = st.slider(
+            "🕒 Selecciona la Hora del Día para Inspección:",
+            min_value=float(h_min),
+            max_value=float(h_max_slider),
+            value=float(h_min),
+            step=0.25,
+            format="%.2f h"
+        )
+
+    with col_ctrl2:
+        h_int = int(t_inspeccion)
+        m_int = int((t_inspeccion - h_int) * 60)
+        st.markdown(f"""
+        <div style="text-align: center; background: var(--secondary-background-color); border: 1px solid rgba(148,163,184,0.3); border-radius: 12px; padding: 12px;">
+            <div style="font-size: 0.75rem; text-transform: uppercase; font-weight: 700; opacity: 0.7;">Hora Seleccionada</div>
+            <div style="font-size: 1.8rem; font-weight: 800; color: #2563EB;">{h_int:02d}:{m_int:02d}</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    estados_cargadores = obtener_estado_en_instante(resultado, t_inspeccion)
+
+    if len(estados_cargadores) > 0:
+        if num_cargadores < 3:
+            num_cols = num_cargadores
+        else:
+            num_cols = 3
+        cols_bays = st.columns(num_cols)
+
+        for idx in range(len(estados_cargadores)):
+            est = estados_cargadores[idx]
+            c_idx = idx % num_cols
+
+            with cols_bays[c_idx]:
+                if est[1] == "Ocupado":
+                    st.markdown(f"""
+                    <div class="bay-card bay-active">
+                        <div class="bay-header">
+                            <h4 class="bay-title">⚡ Bahía {est[0]}</h4>
+                            <span class="bay-badge-busy">Cargando ({est[2]})</span>
+                        </div>
+                        <div class="bay-meta">
+                            <span class="bay-meta-label">Vehículo en Carga:</span>
+                            <span class="bay-meta-val" style="color: #2563EB;">{est[3]} (Placa {est[2]})</span>
+                        </div>
+                        <div class="bay-meta">
+                            <span class="bay-meta-label">Energía Transferida:</span>
+                            <span class="bay-meta-val">{est[5]:.1f} / {est[6]:.1f} kWh</span>
+                        </div>
+                        <div class="bay-meta">
+                            <span class="bay-meta-label">Hora Estimada Fin:</span>
+                            <span class="bay-meta-val">{est[7]:.2f} h</span>
+                        </div>
+                        <div style="margin-top: 10px; margin-bottom: 4px; display: flex; justify-content: space-between; font-size: 0.85rem; font-weight: 700;">
+                            <span>Progreso Batería</span>
+                            <span style="color: #2563EB;">{est[4]:.1f}%</span>
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    st.progress(float(est[4]) / 100.0)
+                else:
+                    st.markdown(f"""
+                    <div class="bay-card bay-idle">
+                        <div class="bay-header">
+                            <h4 class="bay-title">⚡ Bahía {est[0]}</h4>
+                            <span class="bay-badge-idle">Disponible</span>
+                        </div>
+                        <div class="bay-meta">
+                            <span class="bay-meta-label">Estado Operativo:</span>
+                            <span class="bay-meta-val" style="color: #10B981;">Libre para conectar</span>
+                        </div>
+                        <div class="bay-meta">
+                            <span class="bay-meta-label">Potencia en Espera:</span>
+                            <span class="bay-meta-val">{resultado[1]} kW</span>
+                        </div>
+                        <div class="bay-meta">
+                            <span class="bay-meta-label">Flujo Activo:</span>
+                            <span class="bay-meta-val">0.0 kW</span>
+                        </div>
+                        <div style="margin-top: 10px; margin-bottom: 4px; display: flex; justify-content: space-between; font-size: 0.85rem; font-weight: 700; color: #64748B;">
+                            <span>Bahía Desocupada</span>
+                            <span>0.0%</span>
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    st.progress(0.0)
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    # ==========================================================================
+    # 7. VISUALIZACIÓN 1: GANTT INTERACTIVO CON AGUJA TEMPORAL SINCRONIZADA
+    # ==========================================================================
+    st.markdown("### 📅 Programación y Despacho Temporal (Diagrama de Gantt)")
+    st.caption(
+        "Visualiza la asignación secuencial de cada vehículo en su respectivo cargador. "
+        "La **línea roja vertical** marca el instante que estás observando en las bahías de arriba."
+    )
+
+    gantt_svg = generar_gantt_svg_moderno(asignaciones, num_cargadores, h_min, h_max, t_inspeccion)
+    st.markdown(f'<div class="gantt-panel">{gantt_svg}</div>', unsafe_allow_html=True)
+
+    col_l1, col_l2, col_l3 = st.columns([1, 1, 1.5])
+    with col_l1:
+        st.markdown("🟦 **Bloques Sólidos:** Vehículo en proceso de carga activa.")
+    with col_l2:
+        st.markdown("🏁 **Tramo Rayado:** Tiempo en fila de espera hasta disponibilidad.")
+    with col_l3:
+        st.markdown("📍 **Línea Roja Punteada:** Hora actual inspeccionada en las bahías.")
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    # ==========================================================================
+    # 8. DETALLE OPERATIVO Y MATRIZ DE DESPACHO
+    # ==========================================================================
+    with st.expander("📊 Consultar Registro Detallado de Despacho (Flota Completa)"):
+        filas_html = []
+        for i in range(len(asignaciones)):
+            v = asignaciones[i]
+            facturacion_v = v[3] * resultado[2]
+            filas_html.append(
+                f"<tr>"
+                f"<td><b>{v[0]}</b></td>"
+                f"<td>{v[1]}</td>"
+                f"<td>{v[2]:05.2f} h</td>"
+                f"<td>Cargador {v[4]}</td>"
+                f"<td>{v[5]:05.2f} h</td>"
+                f"<td>{v[6]:05.2f} h</td>"
+                f"<td>{v[7]:.2f} h</td>"
+                f"<td>{v[8]:.2f} h</td>"
+                f"<td>{v[3]:.1f} kWh</td>"
+                f"<td>${facturacion_v:,.0f}</td>"
+                f"</tr>"
+            )
+
+        cuerpo_tabla = "".join(filas_html)
+        tabla_html = f"""
+        <table class="tabla-despacho">
+            <thead>
+                <tr>
+                    <th>Placa</th>
+                    <th>Nombre / Modelo</th>
+                    <th>Llegada</th>
+                    <th>Bahía</th>
+                    <th>Inicio</th>
+                    <th>Fin</th>
+                    <th>Carga</th>
+                    <th>Espera</th>
+                    <th>Energía</th>
+                    <th>Facturación</th>
+                </tr>
+            </thead>
+            <tbody>
+                {cuerpo_tabla}
+            </tbody>
+        </table>
+        """
+        st.markdown(tabla_html, unsafe_allow_html=True)
+else:
+    st.markdown("""
+    <div class="station-header">
+        <div>
+            <h1 class="station-title">⚡ Red de Carga EV</h1>
+            <div class="station-subtitle">
+                No hay estaciones de carga activas en este momento
+            </div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+    st.info("ℹ️ Todas las estaciones fueron eliminadas. Usa **🏢 Agregar Nueva Estación** o **Importar archivo JSON** en la barra lateral para continuar.")
