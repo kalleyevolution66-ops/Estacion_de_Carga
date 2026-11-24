@@ -776,7 +776,7 @@ if estacion_actual is not None:
     # ==========================================================================
     # 7. VISUALIZACIÓN 1: GANTT INTERACTIVO CON AGUJA TEMPORAL SINCRONIZADA
     # ==========================================================================
-    st.markdown("### 📅 Programación y Despacho Temporal (Diagrama de Gantt)")
+    st.markdown("### 📅 Programación y Despacho Temporal")
     st.caption(
         "Visualiza la asignación secuencial de cada vehículo en su respectivo cargador. "
         "La **línea roja vertical** marca el instante que estás observando en las bahías de arriba."
