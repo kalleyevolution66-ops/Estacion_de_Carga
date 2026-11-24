@@ -62,21 +62,30 @@ st.markdown("""
     .station-header {
         background: linear-gradient(135deg, #1E3A8A 0%, #3B82F6 100%);
         color: white;
-        padding: 20px 24px;
-        border-radius: 14px;
+        padding: 22px 28px;
+        border-radius: 18px;
         margin-bottom: 24px;
         box-shadow: 0 4px 12px rgba(30, 58, 138, 0.15);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: nowrap;
+        gap: 16px;
+        box-sizing: border-box;
+        width: 100%;
     }
     .station-title {
         font-size: 1.8rem;
         font-weight: 800;
         margin: 0;
         letter-spacing: -0.5px;
+        white-space: nowrap;
     }
     .station-subtitle {
         font-size: 0.95rem;
         opacity: 0.9;
         margin-top: 4px;
+        white-space: normal;
     }
     .kpi-card {
         background: var(--secondary-background-color);
@@ -576,17 +585,15 @@ if estacion_actual is not None:
     # ==========================================================================
     st.markdown(f"""
     <div class="station-header">
-        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-            <div>
-                <h1 class="station-title">⚡ Estación de Carga "{resultado[0]}"</h1>
-                <div class="station-subtitle">
-                    Sistema Inteligente de Despacho y Monitoreo de Recarga para Vehículos Eléctricos
-                </div>
+        <div>
+            <h1 class="station-title">⚡ Estación de Carga: {resultado[0]}</h1>
+            <div class="station-subtitle">
+                Sistema Inteligente de Despacho y Monitoreo de Recarga para Vehículos Eléctricos
             </div>
-            <div style="text-align: right; background: rgba(255,255,255,0.15); padding: 8px 16px; border-radius: 10px;">
-                <div style="font-size: 0.8rem; font-weight: 600; text-transform: uppercase;">Infraestructura</div>
-                <div style="font-size: 1.3rem; font-weight: 800;">{num_cargadores} Cargadores ({resultado[1]} kW c/u)</div>
-            </div>
+        </div>
+        <div style="text-align: right; background: rgba(255,255,255,0.15); padding: 8px 16px; border-radius: 10px; white-space: nowrap; flex-shrink: 0;">
+            <div style="font-size: 0.8rem; font-weight: 600; text-transform: uppercase;">Infraestructura</div>
+            <div style="font-size: 1.3rem; font-weight: 800;">{num_cargadores} Cargadores ({resultado[1]} kW c/u)</div>
         </div>
     </div>
     """, unsafe_allow_html=True)
