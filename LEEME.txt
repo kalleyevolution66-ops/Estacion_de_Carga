@@ -1,0 +1,31 @@
+PROYECTO 5: ESTACIÓN DE CARGA DE VEHÍCULOS ELÉCTRICOS
+===========================================================
+Curso: Fundamentos de Programación - Ingeniería Energética
+
+1. CÓMO EJECUTAR LA APLICACIÓN
+------------------------------
+Opción recomendada (Web con Streamlit):
+  pip install -r requirements.txt
+  streamlit run app.py
+
+Opción de escritorio (sin instalaciones externas, usa Tkinter):
+  python app_tkinter.py
+
+Ejecutar pruebas de verificación:
+  python test_simulador.py
+
+2. RETO FUNCIONAL IMPLEMENTADO
+------------------------------
+Se implementó el reto "Mostrar la hora de mayor ocupación":
+- La función calcular_hora_pico() en simulador.py evalúa cada 0.25 h (15 min)
+  cuántos cargadores se encuentran ocupados de forma simultánea.
+- Muestra el intervalo de máxima ocupación, la cantidad de cargadores activos
+  y el porcentaje de ocupación pico en una tarjeta KPI destacada.
+- Con el caso de verificación oficial (2 cargadores de 10 kW, vehículos A, B, C, D),
+  reporta: 8.00 h a 11.00 h (2 de 2 cargadores = 100%).
+
+3. ESTRUCTURA DEL CÓDIGO (HERRAMIENTAS BÁSICAS DE PYTHON)
+---------------------------------------------------------
+Toda la lógica de simulación (simulador.py), pruebas (test_simulador.py) y
+control de interfaz está escrita exclusivamente con:
+if, elif, else, for, while, and, or, listas, matrices, def, f-strings y JSON.
